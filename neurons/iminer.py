@@ -54,7 +54,7 @@ import ollama
 import pandas as pd
 import os
 import numpy as np
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict
 from tqdm import tqdm
 
 # Bittensor Miner Template:
@@ -64,9 +64,17 @@ from MIID.protocol import IdentitySynapse
 from MIID.base.miner import BaseMinerNeuron
 
 from bittensor.core.errors import NotVerifiedException
-from MIID.validator.cheat_detection import normalize_variation
-from MIID.validator.reward import translate_unidecode
-from extensions import dob_variations, input_parse, name_variations
+from MIID.validator.reward import transliterate_name_with_llm
+from MIID.validator.rule_evaluator import is_letter_duplicated
+from extensions import (
+    address_variations,
+    dob_variations,
+    input_parse,
+    llm_variations,
+    name_variations,
+    rule_based_variations,
+)
+from extensions.rule_based_variations import detect_script
 
 
 class Miner(BaseMinerNeuron):
@@ -252,40 +260,77 @@ class Miner(BaseMinerNeuron):
             dob = identity[1] if len(identity) > 1 else "Unknown"
             address = identity[2] if len(identity) > 2 else "Unknown"
 
-            formatted_query = synapse.query_template.replace("{name}", name)
+            is_latin = detect_script(name) == "latin"
+            if not is_latin:
+                transliterate_name = (
+                    transliterate_name_with_llm(
+                        name, name_variations.detect_script(name).name
+                    )
+                    .strip()
+                    .capitalize()
+                )
+            else:
+                transliterate_name = name
+
+            formatted_query = synapse.query_template.replace(
+                "{name}", transliterate_name
+            )
             formatted_query = formatted_query.replace("{address}", address)
             formatted_query = formatted_query.replace("{dob}", dob)
+            bt.logging.info(f"Formatted query: {formatted_query}")
 
-            resp: input_parse.ValidatorRequest = input_parse.parse_validator_request(
-                formatted_query
+            variation_count = input_parse.find_variation_count(formatted_query)
+
+            bt.logging.info(
+                f"""Processing {name} - is latin: {is_latin}, name: {transliterate_name},
+                DOB: {dob}, Address: {address}, expecting {variation_count} variations"""
             )
 
-            name_variation = name_variations.generate_name_variations(
-                name=name,
-                expected_count=resp.variation_count,
-                country=address,
-                phonetic_config=resp.phonetic_spec,
-                orthographic_config=resp.orthographic_spec,
-                rule_percentage=resp.rule_percentage,
-                selected_rules=resp.rules.split(","),
+            llm_name_variation = llm_variations.generate_variations(
+                formatted_query, transliterate_name, is_latin
             )
+            bt.logging.critical(f"llm_name_variation: {llm_name_variation}")
+
+            name_variation_rule_based = rule_based_variations.generate_variations(
+                transliterate_name,
+                formatted_query,
+                miner_salt=1,
+                batch_salt=1,
+            )
+
+            name_variation = [
+                item.lower()
+                for item in (name_variation_rule_based + llm_name_variation)
+            ]
 
             dob_variation = dob_variations.generate_dob_variations(
-                seed_dob=dob, expected_count=resp.variation_count
+                seed_dob=dob, expected_count=variation_count
+            )
+
+            address_variation = address_variations.generate_address_variations(
+                address, expected_count=variation_count
             )
 
             print(dob_variation)
             print(name_variation)
+            print(address_variation)
 
-            for idx in range(len(name_variation)):
+            bt.logging.critical(
+                f"name_variation: {name_variation} | variation_count: {variation_count}"
+            )
+            assert len(name_variation) >= variation_count
+
+            for idx in range(len(dob_variation)):
+                var_name = name_variation[idx] if idx < len(name_variation) else ""
+                var_dob = dob_variation[idx] if idx < len(dob_variation) else ""
+                var_address = (
+                    address_variation[idx] if idx < len(address_variation) else ""
+                )
+
                 if name not in variations:
-                    variations[name] = [
-                        [name_variation[idx], dob_variation[idx], address]
-                    ]
+                    variations[name] = [[var_name, var_dob, var_address]]
                 else:
-                    variations[name].append(
-                        [name_variation[idx], dob_variation[idx], address]
-                    )
+                    variations[name].append([var_name, var_dob, var_address])
 
         print(variations)
         synapse.variations = variations

@@ -76,6 +76,9 @@ def generate_dob_variations(
         seed_dob: YYYY-MM-DD
         expected_count: number of items to return (cap)
     """
+    if not expected_count:
+        return []
+
     base_date = _parse_date(seed_dob)
     variations: List[str] = []
 
@@ -96,14 +99,21 @@ def generate_dob_variations(
         if v not in guaranteed and v not in fillers:
             fillers.append(v)
 
-    variations = guaranteed + fillers
-
     # Stable randomized ordering with salt
     rng_seed = (hash(seed_dob) & 0xFFFFFFFF) ^ (miner_salt * 131) ^ (batch_salt * 911)
+
     rng = random.Random(rng_seed)
-    rng.shuffle(variations)
+    rng.shuffle(guaranteed)
+    rng.shuffle(fillers)
+    variations = guaranteed + fillers
+
+    if not variations:
+        return []
+
+    for _ in range(expected_count // len(variations) + 1):
+        variations.extend(variations)
     return variations[:expected_count]
 
 
 if __name__ == "__main__":
-    print(generate_dob_variations("1990-01-15", 12))
+    print(generate_dob_variations("1990-01-15", 8))
