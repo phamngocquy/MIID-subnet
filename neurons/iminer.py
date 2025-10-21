@@ -291,12 +291,14 @@ class Miner(BaseMinerNeuron):
             )
             bt.logging.critical(f"llm_name_variation: {llm_name_variation}")
 
-            name_variation_rule_based = rule_based_variations.generate_variations(
-                transliterate_name,
-                formatted_query,
-                miner_salt=1,
-                batch_salt=1,
-            )
+            name_variation_rule_based = []
+            if is_latin:
+                name_variation_rule_based = rule_based_variations.generate_variations(
+                    transliterate_name,
+                    formatted_query,
+                    miner_salt=1,
+                    batch_salt=1,
+                )
 
             name_variation = [
                 item.lower()

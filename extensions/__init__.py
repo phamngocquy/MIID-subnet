@@ -1,7 +1,3 @@
-import dotenv
-
-dotenv.load_dotenv()
-
 from extensions import (
     address_variations,
     dob_variations,

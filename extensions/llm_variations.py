@@ -1,4 +1,8 @@
 # coding=utf-8
+import dotenv
+
+dotenv.load_dotenv()
+
 import json
 import os
 
