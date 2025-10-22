@@ -2,19 +2,13 @@
 Enhanced Name Variations Generator with Weighted Similarity Support
 
 Features:
-- Variable orthographic and phonetic weights from noted.md configuration
-- Support for all countries from JSON files (sanctioned_countries.json, Sanctioned_list.json, Sanctioned_Transliteration.json)
-- Additional Latin language countries support
+- Variable orthographic and phonetic weights
 - Script detection (latin, arabic, cjk, cyrillic, other_scripts)
 - Weighted similarity distribution selection
-- Rule-based variation generation
-- Country-specific name generation patterns
+- High-quality variation generation
 """
 
-import json
-import os
 import random
-from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
@@ -28,404 +22,6 @@ class ScriptType(Enum):
     CJK = "cjk"
     CYRILLIC = "cyrillic"
     OTHER_SCRIPTS = "other_scripts"
-
-
-@dataclass
-class CountryInfo:
-    """Information about a country and its script"""
-
-    name: str
-    script: ScriptType
-    faker_locale: Optional[str] = None
-    is_sanctioned: bool = False
-
-
-class CountryManager:
-    """Manages country information and script detection"""
-
-    def __init__(self):
-        self.countries: Dict[str, CountryInfo] = {}
-        self._load_countries()
-
-    def _load_countries(self):
-        """Load countries from JSON files and add additional Latin countries"""
-        # Load from sanctioned_countries.json
-        self._load_sanctioned_countries()
-
-        # Load from Sanctioned_list.json for additional countries
-        self._load_sanctioned_list()
-
-        # Add additional Latin language countries
-        self._add_latin_countries()
-
-    def _load_sanctioned_countries(self):
-        """Load countries from sanctioned_countries.json"""
-        try:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            json_path = os.path.join(
-                current_dir, "..", "MIID", "validator", "sanctioned_countries.json"
-            )
-            if os.path.exists(json_path):
-                with open(json_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-
-                for script_key, countries in data.items():
-                    script_type = ScriptType(script_key)
-                    for country_data in countries:
-                        country_name = country_data.get("country")
-                        faker_locale = country_data.get("faker_locale")
-                        if country_name:
-                            self.countries[country_name.lower()] = CountryInfo(
-                                name=country_name,
-                                script=script_type,
-                                faker_locale=faker_locale,
-                                is_sanctioned=True,
-                            )
-        except Exception as e:
-            print(f"Error loading sanctioned countries: {e}")
-
-    def _load_sanctioned_list(self):
-        """Load countries from Sanctioned_list.json"""
-        try:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            json_path = os.path.join(
-                current_dir, "..", "MIID", "validator", "Sanctioned_list.json"
-            )
-            if os.path.exists(json_path):
-                with open(json_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-
-                for entry in data:
-                    country = entry.get("Country_Residence", "")
-                    if country and country.lower() not in self.countries:
-                        # Determine script based on country name patterns
-                        script = self._detect_script_from_country(country)
-                        self.countries[country.lower()] = CountryInfo(
-                            name=country, script=script, is_sanctioned=True
-                        )
-        except Exception as e:
-            print(f"Error loading sanctioned list: {e}")
-
-    def _detect_script_from_country(self, country: str) -> ScriptType:
-        """Detect script type from country name"""
-        country_lower = country.lower()
-
-        # Arabic countries
-        arabic_countries = [
-            "syria",
-            "iraq",
-            "iran",
-            "afghanistan",
-            "sudan",
-            "lebanon",
-            "libya",
-            "somalia",
-            "yemen",
-            "algeria",
-        ]
-        if any(arabic in country_lower for arabic in arabic_countries):
-            return ScriptType.ARABIC
-
-        # CJK countries
-        cjk_countries = ["china", "taiwan", "japan", "north korea", "south korea"]
-        if any(cjk in country_lower for cjk in cjk_countries):
-            return ScriptType.CJK
-
-        # Cyrillic countries
-        cyrillic_countries = [
-            "russia",
-            "ukraine",
-            "belarus",
-            "bulgaria",
-            "armenia",
-            "crimea",
-            "donetsk",
-            "luhansk",
-        ]
-        if any(cyrillic in country_lower for cyrillic in cyrillic_countries):
-            return ScriptType.CYRILLIC
-
-        # Other scripts
-        other_scripts_countries = [
-            "myanmar",
-            "laos",
-            "nepal",
-            "vietnam",
-            "india",
-            "thailand",
-            "israel",
-            "greece",
-            "georgia",
-        ]
-        if any(other in country_lower for other in other_scripts_countries):
-            return ScriptType.OTHER_SCRIPTS
-
-        # Default to Latin
-        return ScriptType.LATIN
-
-    def _add_latin_countries(self):
-        """Add additional Latin language countries"""
-        latin_countries = [
-            # European Latin countries
-            "Spain",
-            "France",
-            "Italy",
-            "Portugal",
-            "Romania",
-            "Moldova",
-            # Latin American countries
-            "Mexico",
-            "Brazil",
-            "Argentina",
-            "Colombia",
-            "Peru",
-            "Chile",
-            "Ecuador",
-            "Guatemala",
-            "Cuba",
-            "Honduras",
-            "Paraguay",
-            "Uruguay",
-            "Costa Rica",
-            "Panama",
-            "El Salvador",
-            "Nicaragua",
-            "Dominican Republic",
-            "Haiti",
-            "Jamaica",
-            "Trinidad and Tobago",
-            "Barbados",
-            "Guyana",
-            "Suriname",
-            "Belize",
-            "Grenada",
-            "Saint Lucia",
-            "Saint Vincent and the Grenadines",
-            "Antigua and Barbuda",
-            "Dominica",
-            "Saint Kitts and Nevis",
-            # African Latin countries
-            "Angola",
-            "Mozambique",
-            "Cape Verde",
-            "Guinea-Bissau",
-            "São Tomé and Príncipe",
-            "Equatorial Guinea",
-            "Chad",
-            "Central African Republic",
-            "Cameroon",
-            "Ivory Coast",
-            "Burkina Faso",
-            "Mali",
-            "Niger",
-            "Senegal",
-            "Guinea",
-            "Sierra Leone",
-            "Liberia",
-            "Ghana",
-            "Togo",
-            "Benin",
-            "Nigeria",
-            "Gabon",
-            "Republic of the Congo",
-            "Democratic Republic of the Congo",
-            "Rwanda",
-            "Burundi",
-            "Madagascar",
-            "Mauritius",
-            "Seychelles",
-            "Comoros",
-            "Djibouti",
-            "Eritrea",
-            "Ethiopia",
-            "Somalia",
-            "Kenya",
-            "Tanzania",
-            "Uganda",
-            "South Sudan",
-            "Sudan",
-            "Egypt",
-            "Libya",
-            "Tunisia",
-            "Algeria",
-            "Morocco",
-            "Western Sahara",
-            "Mauritania",
-            "Mali",
-            "Burkina Faso",
-            "Niger",
-            "Chad",
-            "Central African Republic",
-            "Cameroon",
-            "Nigeria",
-            "Benin",
-            "Togo",
-            "Ghana",
-            "Burkina Faso",
-            "Ivory Coast",
-            "Liberia",
-            "Sierra Leone",
-            "Guinea",
-            "Guinea-Bissau",
-            "Senegal",
-            "Gambia",
-            "Mauritania",
-            "Mali",
-            "Burkina Faso",
-            "Niger",
-            "Chad",
-            "Sudan",
-            "South Sudan",
-            "Ethiopia",
-            "Eritrea",
-            "Djibouti",
-            "Somalia",
-            "Kenya",
-            "Uganda",
-            "Tanzania",
-            "Rwanda",
-            "Burundi",
-            "Democratic Republic of the Congo",
-            "Republic of the Congo",
-            "Central African Republic",
-            "Cameroon",
-            "Equatorial Guinea",
-            "Gabon",
-            "São Tomé and Príncipe",
-            "Angola",
-            "Zambia",
-            "Malawi",
-            "Mozambique",
-            "Madagascar",
-            "Mauritius",
-            "Seychelles",
-            "Comoros",
-            "Mayotte",
-            "Réunion",
-            "Saint Helena",
-            "Ascension Island",
-            "Tristan da Cunha",
-            "Bouvet Island",
-            "South Georgia",
-            "South Sandwich Islands",
-            "Falkland Islands",
-            "South Shetland Islands",
-            "South Orkney Islands",
-            "South Georgia and the South Sandwich Islands",
-            # Other Latin countries
-            "Philippines",
-            "East Timor",
-            "Vatican City",
-            "San Marino",
-            "Andorra",
-            "Liechtenstein",
-            "Monaco",
-            "Luxembourg",
-            "Belgium",
-            "Netherlands",
-            "Switzerland",
-            "Austria",
-            "Germany",
-            "Denmark",
-            "Sweden",
-            "Norway",
-            "Finland",
-            "Iceland",
-            "Ireland",
-            "United Kingdom",
-            "Malta",
-            "Cyprus",
-        ]
-
-        for country in latin_countries:
-            if country.lower() not in self.countries:
-                self.countries[country.lower()] = CountryInfo(
-                    name=country, script=ScriptType.LATIN, is_sanctioned=False
-                )
-
-    def get_country_info(self, country: Optional[str]) -> Optional[CountryInfo]:
-        """Get country information by name"""
-        if not country:
-            return None
-        return self.countries.get(country.lower())
-
-    def get_script_for_country(self, country: Optional[str]) -> ScriptType:
-        """Get script type for a country"""
-        country_info = self.get_country_info(country)
-        if country_info:
-            return country_info.script
-        return ScriptType.LATIN  # Default fallback
-
-
-class WeightedSimilaritySelector:
-    """Handles weighted selection of similarity configurations"""
-
-    def __init__(self):
-        self.phonetic_configs = self._load_phonetic_configs()
-        self.orthographic_configs = self._load_orthographic_configs()
-
-    def get_balanced_configs(self):
-        """Get balanced phonetic and orthographic configurations"""
-        return (
-            {"Light": 0.3, "Medium": 0.4, "Far": 0.3},  # Phonetic config
-            {"Light": 0.3, "Medium": 0.4, "Far": 0.3},  # Orthographic config
-        )
-
-    def _load_phonetic_configs(self) -> List[Tuple[Dict[str, float], float]]:
-        """Load phonetic similarity configurations from noted.md"""
-        return [
-            # Balanced distribution - high weight for balanced testing
-            ({"Light": 0.3, "Medium": 0.4, "Far": 0.3}, 0.25),
-            # Focus on Medium similarity - most common real-world scenario
-            ({"Light": 0.2, "Medium": 0.6, "Far": 0.2}, 0.20),
-            # Focus on Far similarity - important for edge cases
-            ({"Light": 0.1, "Medium": 0.3, "Far": 0.6}, 0.15),
-            # Light-Medium mix - moderate weight
-            ({"Light": 0.5, "Medium": 0.5}, 0.12),
-            # Medium-Far mix - moderate weight
-            ({"Light": 0.1, "Medium": 0.5, "Far": 0.4}, 0.10),
-            # Only Medium similarity - common case
-            ({"Medium": 1.0}, 0.08),
-            # High Light but not 100% - reduced frequency
-            ({"Light": 0.7, "Medium": 0.3}, 0.05),
-            # Only Far similarity - edge case
-            ({"Far": 1.0}, 0.03),
-            # Only Light similarity - reduced frequency
-            ({"Light": 1.0}, 0.02),
-        ]
-
-    def _load_orthographic_configs(self) -> List[Tuple[Dict[str, float], float]]:
-        """Load orthographic similarity configurations from noted.md"""
-        return [
-            # Balanced distribution - high weight for balanced testing
-            ({"Light": 0.3, "Medium": 0.4, "Far": 0.3}, 0.25),
-            # Focus on Medium similarity - most common real-world scenario
-            ({"Light": 0.2, "Medium": 0.6, "Far": 0.2}, 0.20),
-            # Focus on Far similarity - important for edge cases
-            ({"Light": 0.1, "Medium": 0.3, "Far": 0.6}, 0.15),
-            # Light-Medium mix - moderate weight
-            ({"Light": 0.5, "Medium": 0.5}, 0.12),
-            # Medium-Far mix - moderate weight
-            ({"Light": 0.1, "Medium": 0.5, "Far": 0.4}, 0.10),
-            # Only Medium similarity - common case
-            ({"Medium": 1.0}, 0.08),
-            # High Light but not 100% - reduced frequency
-            ({"Light": 0.7, "Medium": 0.3}, 0.05),
-            # Only Far similarity - edge case
-            ({"Far": 1.0}, 0.03),
-            # Only Light similarity - reduced frequency
-            ({"Light": 1.0}, 0.02),
-        ]
-
-    def select_phonetic_config(self) -> Dict[str, float]:
-        """Select phonetic configuration using weighted random selection"""
-        configs, weights = zip(*self.phonetic_configs)
-        return random.choices(configs, weights=weights, k=1)[0]
-
-    def select_orthographic_config(self) -> Dict[str, float]:
-        """Select orthographic configuration using weighted random selection"""
-        configs, weights = zip(*self.orthographic_configs)
-        return random.choices(configs, weights=weights, k=1)[0]
 
 
 def detect_script(text: str) -> ScriptType:
@@ -460,153 +56,14 @@ def detect_script(text: str) -> ScriptType:
     return ScriptType.LATIN
 
 
-def _generate_latin_variations(
-    name: str, count: int, country_info: Optional[CountryInfo] = None
-) -> List[str]:
-    """Generate Latin script variations with country-specific patterns"""
+def _generate_latin_variations(name: str, count: int) -> List[str]:
+    """Generate Latin script variations"""
     variations: List[str] = []
-
-    # Country-specific patterns
-    if country_info and country_info.faker_locale:
-        locale = country_info.faker_locale
-        if "es" in locale:  # Spanish-speaking countries
-            variations.extend(_generate_spanish_variations(name, count))
-        elif "fr" in locale:  # French-speaking countries
-            variations.extend(_generate_french_variations(name, count))
-        elif "pt" in locale:  # Portuguese-speaking countries
-            variations.extend(_generate_portuguese_variations(name, count))
-        elif "de" in locale:  # German-speaking countries
-            variations.extend(_generate_german_variations(name, count))
-        elif "it" in locale:  # Italian-speaking countries
-            variations.extend(_generate_italian_variations(name, count))
 
     # General Latin variations
     variations.extend(_generate_general_latin_variations(name, count))
 
     return variations[:count]
-
-
-def _generate_spanish_variations(name: str, count: int) -> List[str]:
-    """Generate Spanish-specific variations"""
-    variations = []
-
-    # Spanish accent variations
-    accent_swaps = {
-        "a": ["á", "à", "â", "ä", "ã"],
-        "e": ["é", "è", "ê", "ë"],
-        "i": ["í", "ì", "î", "ï"],
-        "o": ["ó", "ò", "ô", "ö", "õ"],
-        "u": ["ú", "ù", "û", "ü"],
-        "n": ["ñ"],
-        "c": ["ç"],
-    }
-
-    for i, char in enumerate(name):
-        if char.lower() in accent_swaps:
-            for accent in accent_swaps[char.lower()]:
-                variation = name[:i] + accent + name[i + 1 :]
-                if variation != name:
-                    variations.append(variation)
-                    if len(variations) >= count:
-                        return variations
-
-    return variations
-
-
-def _generate_french_variations(name: str, count: int) -> List[str]:
-    """Generate French-specific variations"""
-    variations = []
-
-    # French accent variations
-    accent_swaps = {
-        "a": ["à", "â", "ä"],
-        "e": ["é", "è", "ê", "ë"],
-        "i": ["î", "ï"],
-        "o": ["ô", "ö"],
-        "u": ["ù", "û", "ü"],
-        "c": ["ç"],
-    }
-
-    for i, char in enumerate(name):
-        if char.lower() in accent_swaps:
-            for accent in accent_swaps[char.lower()]:
-                variation = name[:i] + accent + name[i + 1 :]
-                if variation != name:
-                    variations.append(variation)
-                    if len(variations) >= count:
-                        return variations
-
-    return variations
-
-
-def _generate_portuguese_variations(name: str, count: int) -> List[str]:
-    """Generate Portuguese-specific variations"""
-    variations = []
-
-    # Portuguese accent variations
-    accent_swaps = {
-        "a": ["á", "à", "â", "ã"],
-        "e": ["é", "ê"],
-        "i": ["í"],
-        "o": ["ó", "ô", "õ"],
-        "u": ["ú"],
-        "c": ["ç"],
-    }
-
-    for i, char in enumerate(name):
-        if char.lower() in accent_swaps:
-            for accent in accent_swaps[char.lower()]:
-                variation = name[:i] + accent + name[i + 1 :]
-                if variation != name:
-                    variations.append(variation)
-                    if len(variations) >= count:
-                        return variations
-
-    return variations
-
-
-def _generate_german_variations(name: str, count: int) -> List[str]:
-    """Generate German-specific variations"""
-    variations = []
-
-    # German umlaut variations
-    umlaut_swaps = {"a": ["ä"], "o": ["ö"], "u": ["ü"], "s": ["ß"]}
-
-    for i, char in enumerate(name):
-        if char.lower() in umlaut_swaps:
-            for umlaut in umlaut_swaps[char.lower()]:
-                variation = name[:i] + umlaut + name[i + 1 :]
-                if variation != name:
-                    variations.append(variation)
-                    if len(variations) >= count:
-                        return variations
-
-    return variations
-
-
-def _generate_italian_variations(name: str, count: int) -> List[str]:
-    """Generate Italian-specific variations"""
-    variations = []
-
-    # Italian accent variations
-    accent_swaps = {
-        "a": ["à"],
-        "e": ["é", "è"],
-        "i": ["í", "ì"],
-        "o": ["ó", "ò"],
-        "u": ["ú", "ù"],
-    }
-
-    for i, char in enumerate(name):
-        if char.lower() in accent_swaps:
-            for accent in accent_swaps[char.lower()]:
-                variation = name[:i] + accent + name[i + 1 :]
-                if variation != name:
-                    variations.append(variation)
-                    if len(variations) >= count:
-                        return variations
-
-    return variations
 
 
 def _generate_general_latin_variations(name: str, count: int) -> List[str]:
@@ -616,7 +73,13 @@ def _generate_general_latin_variations(name: str, count: int) -> List[str]:
 
     # PRIORITY 1: Light variations (high similarity) - Target ~60% when aiming for high scores
     # Vowel swaps (very high similarity)
-    vowel_swaps = {"a": ["e"], "e": ["a"], "i": ["y"], "o": ["u"], "u": ["o"]}
+    vowel_swaps = {
+        "a": ["e", "i", "o"],
+        "e": ["a", "i"],
+        "i": ["y", "a", "e"],
+        "o": ["u", "a"],
+        "u": ["o", "a"],
+    }
     light_count = 0
     max_light = max(1, int(count * 0.6))  # Boost light share
 
@@ -642,18 +105,28 @@ def _generate_general_latin_variations(name: str, count: int) -> List[str]:
         if ch.isalpha():
             # Try common high-similarity substitutions
             subs = {
-                "c": "k",
-                "k": "c",
-                "s": "z",
-                "z": "s",
-                "ph": "f",
-                "f": "ph",
-                "v": "b",
-                "b": "v",
+                "c": ["k", "s"],
+                "k": ["c", "q"],
+                "s": ["z", "c"],
+                "z": ["s"],
+                "ph": ["f"],
+                "f": ["ph"],
+                "v": ["b", "w"],
+                "b": ["v", "p"],
+                "j": ["g", "y"],
+                "g": ["j"],
+                "w": ["v"],
+                "p": ["b"],
+                "t": ["d"],
+                "d": ["t"],
+                "m": ["n"],
+                "n": ["m"],
             }
-            for old, new in subs.items():
-                if name[i : i + len(old)].lower() == old:
-                    variation = name[:i] + new + name[i + len(old) :]
+            low_ch = ch.lower()
+            if low_ch in subs:
+                for new in subs[low_ch]:
+                    new_ch = new.upper() if ch.isupper() else new
+                    variation = name[:i] + new_ch + name[i + 1 :]
                     if variation != name and variation not in seen:
                         variations.append(variation)
                         seen.add(variation)
@@ -795,101 +268,54 @@ def _generate_general_latin_variations(name: str, count: int) -> List[str]:
                 if len(variations) >= count:
                     return variations
 
-    return variations
-
-
-def _generate_arabic_variations(name: str, count: int) -> List[str]:
-    """Generate Arabic script variations"""
-    variations = []
-
-    # Character repetition
-    for i, ch in enumerate(name):
-        variation = name[:i] + ch + name[i:]
-        if variation != name and variation not in variations:
-            variations.append(variation)
+    # If we still don't have enough variations, generate more using additional methods
+    if len(variations) < count:
+        # Generate more variations by character manipulation
+        for i, ch in enumerate(name):
             if len(variations) >= count:
-                return variations
-
-    # Word order changes
-    parts = name.split()
-    if len(parts) >= 2:
-        swapped = " ".join([parts[-1], parts[0]] + parts[1:-1])
-        if swapped != name and swapped not in variations:
-            variations.append(swapped)
-            if len(variations) >= count:
-                return variations
-
-    # Add ibn/abu style
-    if len(parts) >= 2:
-        ibn = f"{parts[0]} بن {parts[1]}"
-        if ibn != name and ibn not in variations:
-            variations.append(ibn)
-
-    return variations
-
-
-def _generate_cjk_variations(name: str, count: int) -> List[str]:
-    """Generate CJK script variations"""
-    variations = []
-
-    # Character repetition
-    for i, ch in enumerate(name):
-        variation = name[:i] + ch + name[i:]
-        if variation != name and variation not in variations:
-            variations.append(variation)
-            if len(variations) >= count:
-                return variations
-
-    # Character removal
-    if len(name) > 1:
-        for i in range(len(name)):
-            variation = name[:i] + name[i + 1 :]
-            if variation and variation != name and variation not in variations:
-                variations.append(variation)
-                if len(variations) >= count:
-                    return variations
-
-    return variations
-
-
-def _generate_cyrillic_variations(name: str, count: int) -> List[str]:
-    """Generate Cyrillic script variations"""
-    variations = []
-
-    # Vowel-like substitutions
-    subs = {"а": ["о"], "е": ["ё"], "и": ["й"], "у": ["ю"], "о": ["ё"]}
-    for i, ch in enumerate(name):
-        low = ch.lower()
-        if low in subs:
-            for repl in subs[low]:
-                new_ch = repl.upper() if ch.isupper() else repl
-                variation = name[:i] + new_ch + name[i + 1 :]
-                if variation != name and variation not in variations:
+                break
+            if ch.isalpha():
+                # Try removing character
+                variation = name[:i] + name[i + 1 :]
+                if variation and variation != name and variation not in seen:
                     variations.append(variation)
+                    seen.add(variation)
                     if len(variations) >= count:
                         return variations
 
-    return variations
+                # Try duplicating character
+                variation = name[:i] + ch + name[i:]
+                if variation != name and variation not in seen:
+                    variations.append(variation)
+                    seen.add(variation)
+                    if len(variations) >= count:
+                        return variations
 
-
-def _generate_other_scripts_variations(name: str, count: int) -> List[str]:
-    """Generate variations for other scripts"""
-    variations = []
-
-    # Character repetition
-    for i, ch in enumerate(name):
-        variation = name[:i] + ch + name[i:]
-        if variation != name and variation not in variations:
-            variations.append(variation)
+    # If still not enough, try case variations
+    if len(variations) < count:
+        tokens = name.split()
+        for i in range(len(tokens)):
             if len(variations) >= count:
-                return variations
-
-    # Character removal
-    if len(name) > 1:
-        for i in range(len(name)):
-            variation = name[:i] + name[i + 1 :]
-            if variation and variation != name and variation not in variations:
+                break
+            new_tokens = tokens[:]
+            new_tokens[i] = new_tokens[i].upper()
+            variation = " ".join(new_tokens)
+            if variation != name and variation not in seen:
                 variations.append(variation)
+                seen.add(variation)
+                if len(variations) >= count:
+                    return variations
+
+    # If still not enough, try adding common suffixes
+    if len(variations) < count:
+        suffixes = ["Jr", "Sr", "II", "III"]
+        for suffix in suffixes:
+            if len(variations) >= count:
+                break
+            variation = f"{name} {suffix}"
+            if variation not in seen:
+                variations.append(variation)
+                seen.add(variation)
                 if len(variations) >= count:
                     return variations
 
@@ -1122,14 +548,12 @@ def _generate_variations_by_similarity_target(
     name: str,
     similarity_target: str,
     count: int,
-    script: ScriptType,
-    country_info: Optional[CountryInfo] = None,
     miner_salt: int = 0,
     batch_salt: int = 0,
 ) -> List[str]:
     """Generate variations targeting a specific similarity level (Light, Medium, Far)"""
     variations = []
-    max_attempts = count * 15  # Try more times to get enough variations
+    max_attempts = count * 20  # Try more times to get enough variations
     attempts = 0
 
     # Set similarity thresholds based on target - use phonetic similarity for classification
@@ -1145,17 +569,8 @@ def _generate_variations_by_similarity_target(
     else:
         return variations
 
-    # Generate base variations based on script
-    if script == ScriptType.LATIN:
-        base_variations = _generate_latin_variations(name, max_attempts, country_info)
-    elif script == ScriptType.ARABIC:
-        base_variations = _generate_arabic_variations(name, max_attempts)
-    elif script == ScriptType.CJK:
-        base_variations = _generate_cjk_variations(name, max_attempts)
-    elif script == ScriptType.CYRILLIC:
-        base_variations = _generate_cyrillic_variations(name, max_attempts)
-    else:
-        base_variations = _generate_other_scripts_variations(name, max_attempts)
+    # Generate base variations based on script - use Latin variations as default
+    base_variations = _generate_latin_variations(name, max_attempts)
 
     # Filter variations by similarity target using phonetic similarity
     for var in base_variations:
@@ -1199,11 +614,23 @@ def _generate_variations_by_similarity_target(
             phon, ortho, bucket = _classify_similarity(name, var)
 
             # Be more lenient: allow slightly lower scores
-            if similarity_target == "Light" and phon >= 0.75:
+            if similarity_target == "Light" and phon >= 0.70:
                 variations.append(var)
                 if len(variations) >= count:
                     break
-            elif similarity_target == "Medium" and 0.50 <= phon < 0.85:
+            elif similarity_target == "Medium" and 0.40 <= phon < 0.90:
+                variations.append(var)
+                if len(variations) >= count:
+                    break
+            elif similarity_target == "Far" and phon >= 0.20:
+                variations.append(var)
+                if len(variations) >= count:
+                    break
+
+    # If still not enough, accept any variation that's not identical
+    if len(variations) < count:
+        for var in base_variations:
+            if var != name and var not in variations:
                 variations.append(var)
                 if len(variations) >= count:
                     break
@@ -1262,6 +689,89 @@ def _select_variations_by_weights(
             selected.append(var)
 
     return selected
+
+
+def _select_variations_by_bucket_targets(
+    variations: List[str],
+    original: str,
+    expected_count: int,
+    targets: Dict[str, float],
+) -> List[str]:
+    """Select variations to match target bucket distribution (by phonetic bucket).
+
+    targets example: {"Light": 0.3, "Medium": 0.4, "Far": 0.3}
+    """
+    if not variations:
+        return []
+
+    # Compute target counts per bucket
+    light_target = int(expected_count * targets.get("Light", 0.0))
+    medium_target = int(expected_count * targets.get("Medium", 0.0))
+    # Ensure totals add up by putting remainder to Far
+    far_target = max(0, expected_count - light_target - medium_target)
+
+    # Classify and score variations
+    bucket_to_scored: Dict[str, List[Tuple[str, float]]] = {
+        "Light": [],
+        "Medium": [],
+        "Far": [],
+    }
+    for var in variations:
+        if var == original:
+            continue
+        phon, ortho, bucket = _classify_similarity(original, var)
+        if bucket not in bucket_to_scored:
+            continue
+        # Prefer higher combined similarity within the bucket
+        combined_similarity = (phon + ortho) / 2.0
+        bucket_to_scored[bucket].append((var, combined_similarity))
+
+    # Sort each bucket by combined similarity desc
+    for bucket in bucket_to_scored:
+        bucket_to_scored[bucket].sort(key=lambda x: x[1], reverse=True)
+
+    selected: List[str] = []
+
+    def take_from(bucket: str, n: int):
+        nonlocal selected
+        pool = bucket_to_scored.get(bucket, [])
+        for var, _ in pool:
+            if len(selected) >= expected_count:
+                break
+            if var not in selected:
+                selected.append(var)
+            if (
+                len(
+                    [
+                        v
+                        for v in selected
+                        if _classify_similarity(original, v)[2] == bucket
+                    ]
+                )
+                >= n
+            ):
+                break
+
+    # Take per target
+    take_from("Light", light_target)
+    take_from("Medium", medium_target)
+    take_from("Far", far_target)
+
+    # If still short, fill from remaining buckets by best similarity overall
+    if len(selected) < expected_count:
+        remaining: List[Tuple[str, float]] = []
+        seen = set(selected)
+        for bucket in ["Light", "Medium", "Far"]:
+            for var, score in bucket_to_scored.get(bucket, []):
+                if var not in seen:
+                    remaining.append((var, score))
+        remaining.sort(key=lambda x: x[1], reverse=True)
+        for var, _ in remaining:
+            if len(selected) >= expected_count:
+                break
+            selected.append(var)
+
+    return selected[:expected_count]
 
 
 def _enforce_first_last(original: str, variations: List[str]) -> List[str]:
@@ -1326,25 +836,201 @@ def _enforce_first_last(original: str, variations: List[str]) -> List[str]:
         parts = v.split()
         if len(parts) == 2 and parts[0].lower() == parts[1].lower():
             continue
-        # remove near-duplicates (Levenshtein distance <= 1)
-        is_near_dup = False
-        for kept in out:
-            try:
-                if Levenshtein.distance(kept, v) <= 1:
-                    is_near_dup = True
-                    break
-            except Exception:
-                from difflib import SequenceMatcher
-
-                ratio = SequenceMatcher(None, kept, v).ratio()
-                if ratio >= 0.95:
-                    is_near_dup = True
-                    break
-        if is_near_dup:
-            continue
+        # Be less strict about near-duplicates - only remove exact duplicates
         seen.add(key)
         out.append(v)
     return out
+
+
+def _generate_part_candidates(original: str) -> List[str]:
+    # Generate simple candidates for a single token (part) without changing length too much
+    candidates: List[str] = []
+    seen = set()
+
+    # LIGHT variations (high similarity) - minimal changes
+    # Single vowel swaps (very high similarity)
+    vowel_swaps = {"a": ["e"], "e": ["a"], "i": ["y"], "o": ["u"], "u": ["o"]}
+    for i, ch in enumerate(original):
+        low = ch.lower()
+        if low in vowel_swaps:
+            for repl in vowel_swaps[low]:
+                new_ch = repl.upper() if ch.isupper() else repl
+                v = original[:i] + new_ch + original[i + 1 :]
+                if v != original and v not in seen:
+                    candidates.append(v)
+                    seen.add(v)
+
+    # Single consonant swaps (high similarity)
+    light_subs = {
+        "c": ["k"],
+        "k": ["c"],
+        "s": ["z"],
+        "z": ["s"],
+        "v": ["b"],
+        "b": ["v"],
+    }
+    for i, ch in enumerate(original):
+        low = ch.lower()
+        if low in light_subs:
+            for repl in light_subs[low]:
+                new_ch = repl.upper() if ch.isupper() else repl
+                v = original[:i] + new_ch + original[i + 1 :]
+                if v != original and v not in seen:
+                    candidates.append(v)
+                    seen.add(v)
+
+    # MEDIUM variations (moderate similarity)
+    # Adjacent transpositions
+    if len(original) >= 4:
+        for i in range(len(original) - 1):
+            v = original[:i] + original[i + 1] + original[i] + original[i + 2 :]
+            if v != original and v not in seen:
+                candidates.append(v)
+                seen.add(v)
+
+    # More aggressive consonant swaps
+    medium_subs = {
+        "j": ["g", "y"],
+        "g": ["j"],
+        "t": ["d"],
+        "d": ["t"],
+        "m": ["n"],
+        "n": ["m"],
+    }
+    for i, ch in enumerate(original):
+        low = ch.lower()
+        if low in medium_subs:
+            for repl in medium_subs[low]:
+                new_ch = repl.upper() if ch.isupper() else repl
+                v = original[:i] + new_ch + original[i + 1 :]
+                if v != original and v not in seen:
+                    candidates.append(v)
+                    seen.add(v)
+
+    # FAR variations (lower similarity)
+    # Character removal (only for longer names)
+    if len(original) >= 4:
+        for i in range(len(original)):
+            v = original[:i] + original[i + 1 :]
+            if v and v != original and v not in seen:
+                candidates.append(v)
+                seen.add(v)
+
+    # Character duplication
+    for i, ch in enumerate(original):
+        v = original[:i] + ch + original[i:]
+        if v != original and v not in seen:
+            candidates.append(v)
+            seen.add(v)
+
+    # Abbreviation (prefix + dot) when long enough
+    if len(original) >= 5:
+        abbr = original[:3] + "."
+        if abbr != original and abbr not in seen:
+            candidates.append(abbr)
+            seen.add(abbr)
+
+    return candidates
+
+
+def _filter_by_bucket(
+    original: str, candidates: List[str], bucket: str, limit: int
+) -> List[str]:
+    out: List[str] = []
+    for v in candidates:
+        phon, _, _ = _classify_similarity(original, v)
+        if bucket == "Light" and 0.80 <= phon <= 1.0:
+            out.append(v)
+        elif bucket == "Medium" and 0.60 <= phon < 0.80:
+            out.append(v)
+        elif bucket == "Far" and 0.30 <= phon < 0.60:
+            out.append(v)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _generate_bucketed_part_variations(
+    original_part: str, bucket: str, count: int
+) -> List[str]:
+    if count <= 0:
+        return []
+    base = _generate_part_candidates(original_part)
+    vars_bucket = _filter_by_bucket(original_part, base, bucket, count * 3)
+    # If insufficient, accept a bit looser boundaries
+    if len(vars_bucket) < count:
+        relaxed: List[str] = []
+        for v in base:
+            phon, _, _ = _classify_similarity(original_part, v)
+            if bucket == "Light" and phon >= 0.75:
+                relaxed.append(v)
+            elif bucket == "Medium" and 0.50 <= phon < 0.85:
+                relaxed.append(v)
+            elif bucket == "Far" and 0.25 <= phon < 0.65:
+                relaxed.append(v)
+            if len(relaxed) >= count:
+                break
+        vars_bucket.extend([v for v in relaxed if v not in vars_bucket])
+    # Trim
+    dedup = []
+    seen = set()
+    for v in vars_bucket:
+        k = v.lower()
+        if k not in seen:
+            dedup.append(v)
+            seen.add(k)
+        if len(dedup) >= count:
+            break
+    return dedup
+
+
+def _compose_fullname_variations(
+    first: str, last: str, plan: List[Tuple[str, str, int]]
+) -> List[str]:
+    """Compose full-name variations using a plan of (first_bucket, last_bucket, count).
+    Use empty bucket string to mean keep original for that side.
+    """
+    out: List[str] = []
+    seen = set()
+    for f_bucket, l_bucket, cnt in plan:
+        f_vars = [first]
+        l_vars = [last]
+        if f_bucket:
+            f_vars = _generate_bucketed_part_variations(first, f_bucket, cnt)
+            if not f_vars:
+                f_vars = [first]
+        if l_bucket:
+            l_vars = _generate_bucketed_part_variations(last, l_bucket, cnt)
+            if not l_vars:
+                l_vars = [last]
+        # Compose pairs, prefer changing one side at a time
+        i = 0
+        while len(out) < len(out) + cnt and i < max(len(f_vars), len(l_vars)):
+            f = f_vars[min(i, len(f_vars) - 1)]
+            l = l_vars[min(i, len(l_vars) - 1)]
+            v = f"{f} {l}"
+            key = v.lower()
+            if key not in seen and (f != first or l != last):
+                out.append(v)
+                seen.add(key)
+            i += 1
+        # If still short, cross product up to cnt
+        if len(out) < len(out) + cnt:
+            for fv in f_vars:
+                for lv in l_vars:
+                    if len(out) >= len(out) + cnt:
+                        break
+                    v = f"{fv} {lv}"
+                    key = v.lower()
+                    if key not in seen and (fv != first or lv != last):
+                        out.append(v)
+                        seen.add(key)
+                if len(out) >= len(out) + cnt:
+                    break
+    return out
+
+
+# --- Updated generation pipeline focusing on part-based composition ---
 
 
 def generate_name_variations(
@@ -1352,213 +1038,189 @@ def generate_name_variations(
     expected_count: int = 10,
     miner_salt: int = 0,
     batch_salt: int = 0,
-    country: Optional[str] = None,
     phonetic_config: Optional[Dict[str, float]] = None,
     orthographic_config: Optional[Dict[str, float]] = None,
-    rule_percentage: Optional[int] = None,
-    selected_rules: Optional[List[str]] = None,
 ) -> List[str]:
     """
-    Generate name variations with weighted similarity support and rule-based control.
-
-    phonetic_config available options = [
-        # Balanced distribution - high weight for balanced testing
-        ({"Light": 0.3, "Medium": 0.4, "Far": 0.3}, 0.25),
-        # Focus on Medium similarity - most common real-world scenario
-        ({"Light": 0.2, "Medium": 0.6, "Far": 0.2}, 0.20),
-        # Focus on Far similarity - important for edge cases
-        ({"Light": 0.1, "Medium": 0.3, "Far": 0.6}, 0.15),
-        # Light-Medium mix - moderate weight
-        ({"Light": 0.5, "Medium": 0.5}, 0.12),
-        # Medium-Far mix - moderate weight
-        ({"Light": 0.1, "Medium": 0.5, "Far": 0.4}, 0.10),
-        # Only Medium similarity - common case
-        ({"Medium": 1.0}, 0.08),
-        # High Light but not 100% - reduced frequency
-        ({"Light": 0.7, "Medium": 0.3}, 0.05),
-        # Only Far similarity - edge case
-        ({"Far": 1.0}, 0.03),
-        # Only Light similarity - reduced frequency
-        ({"Light": 1.0}, 0.02),
-        ]
-
-    orthographic_config available options = [
-        # Balanced distribution - high weight for balanced testing
-        ({"Light": 0.3, "Medium": 0.4, "Far": 0.3}, 0.25),
-        # Focus on Medium similarity - most common real-world scenario
-        ({"Light": 0.2, "Medium": 0.6, "Far": 0.2}, 0.20),
-        # Focus on Far similarity - important for edge cases
-        ({"Light": 0.1, "Medium": 0.3, "Far": 0.6}, 0.15),
-        # Light-Medium mix - moderate weight
-        ({"Light": 0.5, "Medium": 0.5}, 0.12),
-        # Medium-Far mix - moderate weight
-        ({"Light": 0.1, "Medium": 0.5, "Far": 0.4}, 0.10),
-        # Only Medium similarity - common case
-        ({"Medium": 1.0}, 0.08),
-        # High Light but not 100% - reduced frequency
-        ({"Light": 0.7, "Medium": 0.3}, 0.05),
-        # Only Far similarity - edge case
-        ({"Far": 1.0}, 0.03),
-        # Only Light similarity - reduced frequency
-        ({"Light": 1.0}, 0.02),
-    ]
+    Generate name variations with weighted similarity support.
 
     Args:
         name: The original name to generate variations for
         expected_count: Total number of variations to generate
         miner_salt: Salt for miner-specific randomization
         batch_salt: Salt for batch-specific randomization
-        country: Country name for script detection
-        phonetic_config: Phonetic similarity weight configuration -
-            should be one of the config options from the available list above
-        orthographic_config: Orthographic similarity weight configuration -
-            should be one of the config options from the available list above
-        rule_percentage: Percentage of rule-based variations (0-100)
-        selected_rules: List of selected rules for variation generation
+        phonetic_config: Phonetic similarity weight configuration
+        orthographic_config: Orthographic similarity weight configuration
 
     Returns:
         List of name variations
-
-    Note:
-        - rule_percentage: 0-100, where 0 = all similarity-based, 100 = all rule-based
-        - If rule_percentage is not specified, uses 0% (all similarity-based)
     """
-    # Initialize managers
-    country_manager = CountryManager()
-
-    # Get country information
-    country_info = country_manager.get_country_info(country)
-    script = country_manager.get_script_for_country(country)
 
     # Determine rule-based and similarity-based counts based on rule_percentage
-    rule_count = 0
     similarity_count = expected_count
-
-    if rule_percentage and rule_percentage > 0:
-        # Calculate counts based on percentage
-        rule_count = max(1, int(expected_count * (rule_percentage / 100.0)))
-        similarity_count = max(0, expected_count - rule_count)
-
-    # Generate rule-based variations if needed
-    rule_variations = []
-    if rule_count > 0 and selected_rules:
-        try:
-            # Generate more rule-based variations to ensure we have enough
-            rule_variations = generate_for_rules(
-                name,
-                selected_rules,
-                per_rule_count=3,  # Increased from 2 to 3
-                total_limit=rule_count * 2,  # Generate more than needed
-                miner_salt=miner_salt,
-                batch_salt=batch_salt,
-            )
-        except ImportError:
-            pass  # Rule-based functionality not available
 
     # Initialize unique_variations for fallback use
     unique_variations = []
 
     # Generate similarity-based variations using config-driven approach
     similarity_variations = []
-    if similarity_count > 0 and phonetic_config and orthographic_config:
-        # Calculate how many variations to generate for each similarity level
-        total_weight = sum(phonetic_config.values()) + sum(orthographic_config.values())
-        if total_weight > 0:
-            # Normalize weights
-            normalized_phonetic = {
-                k: v / sum(phonetic_config.values()) for k, v in phonetic_config.items()
-            }
-            normalized_orthographic = {
-                k: v / sum(orthographic_config.values())
-                for k, v in orthographic_config.items()
-            }
 
-            # Calculate counts for each similarity level
-            for similarity_level in ["Light", "Medium", "Far"]:
-                phon_weight = normalized_phonetic.get(similarity_level, 0.0)
-                ortho_weight = normalized_orthographic.get(similarity_level, 0.0)
-                combined_weight = (phon_weight + ortho_weight) / 2.0
+    # Generate variations that preserve the original name structure
+    parts = [p for p in name.split() if p.strip()]
+    if len(parts) >= 2:
+        # Always preserve the full structure: First [Middle] Last
+        orig_first, orig_last = parts[0], parts[-1]
 
-                if combined_weight > 0:
-                    level_count = max(1, int(similarity_count * combined_weight))
-                    level_variations = _generate_variations_by_similarity_target(
-                        name,
-                        similarity_level,
-                        level_count,
-                        script,
-                        country_info,
-                        miner_salt,
-                        batch_salt,
-                    )
-                    similarity_variations.extend(level_variations)
-    else:
-        # Fallback to old method if configs are not provided
-        base_variations = []
-        if script == ScriptType.LATIN:
-            base_variations = _generate_latin_variations(
-                name, expected_count * 10, country_info
-            )
-        elif script == ScriptType.ARABIC:
-            base_variations = _generate_arabic_variations(name, expected_count * 10)
-        elif script == ScriptType.CJK:
-            base_variations = _generate_cjk_variations(name, expected_count * 10)
-        elif script == ScriptType.CYRILLIC:
-            base_variations = _generate_cyrillic_variations(name, expected_count * 10)
+        if len(parts) == 3:
+            # 3-part names: First Middle Last
+            orig_middle = parts[1]
+            first_variations = _generate_part_candidates(orig_first)
+            middle_variations = _generate_part_candidates(orig_middle)
+            last_variations = _generate_part_candidates(orig_last)
+
+            # Generate variations maintaining "First Middle Last" structure
+            # First name variations (keep middle and last same)
+            for f_var in first_variations[: expected_count // 3]:
+                if f_var != orig_first and len(f_var) > 0:
+                    similarity_variations.append(f"{f_var} {orig_middle} {orig_last}")
+
+            # Middle name variations (keep first and last same)
+            for m_var in middle_variations[: expected_count // 3]:
+                if m_var != orig_middle and len(m_var) > 0:
+                    similarity_variations.append(f"{orig_first} {m_var} {orig_last}")
+
+            # Last name variations (keep first and middle same)
+            for l_var in last_variations[: expected_count // 3]:
+                if l_var != orig_last and len(l_var) > 0:
+                    similarity_variations.append(f"{orig_first} {orig_middle} {l_var}")
+
+            # Some combinations (First + Last, keep middle)
+            for f_var in first_variations[:2]:
+                for l_var in last_variations[:2]:
+                    if (
+                        (f_var != orig_first or l_var != orig_last)
+                        and len(f_var) > 0
+                        and len(l_var) > 0
+                    ):
+                        similarity_variations.append(f"{f_var} {orig_middle} {l_var}")
+                        if len(similarity_variations) >= expected_count:
+                            break
+                if len(similarity_variations) >= expected_count:
+                    break
         else:
-            base_variations = _generate_other_scripts_variations(
-                name, expected_count * 10
-            )
+            # 2-part names: First Last
+            first_variations = _generate_part_candidates(orig_first)
+            last_variations = _generate_part_candidates(orig_last)
 
-        # Remove duplicates and original
-        unique_variations = list(
-            dict.fromkeys([v for v in base_variations if v != name])
-        )
-        similarity_variations = unique_variations[:similarity_count]
+            # First name variations (keep last name same)
+            for f_var in first_variations[: expected_count // 2]:
+                if f_var != orig_first:
+                    similarity_variations.append(f"{f_var} {orig_last}")
+
+            # Last name variations (keep first name same)
+            for l_var in last_variations[: expected_count // 2]:
+                if l_var != orig_last:
+                    similarity_variations.append(f"{orig_first} {l_var}")
+
+            # Some both-changed variations
+            for f_var in first_variations[:3]:
+                for l_var in last_variations[:3]:
+                    if f_var != orig_first or l_var != orig_last:
+                        similarity_variations.append(f"{f_var} {l_var}")
+                        if len(similarity_variations) >= expected_count:
+                            break
+                if len(similarity_variations) >= expected_count:
+                    break
+
+        # Remove duplicates and cap
+        seen = set()
+        unique_variations = []
+        for var in similarity_variations:
+            if var not in seen and var != name:
+                unique_variations.append(var)
+                seen.add(var)
+                if len(unique_variations) >= expected_count:
+                    break
+        similarity_variations = unique_variations
+
+    # Generate additional variations if needed using proper structure-preserving method
+    if len(similarity_variations) < expected_count:
+        needed = expected_count - len(similarity_variations)
+        # Generate more variations using the same structure-preserving approach
+        parts = [p for p in name.split() if p.strip()]
+        if len(parts) >= 2:
+            orig_first, orig_last = parts[0], parts[-1]
+
+            if len(parts) == 3:
+                orig_middle = parts[1]
+                # Generate more first name variations
+                first_variations = _generate_part_candidates(orig_first)
+                for f_var in first_variations[expected_count // 3 :]:
+                    if (
+                        f_var != orig_first
+                        and len(f_var) > 0
+                        and len(similarity_variations) < expected_count
+                    ):
+                        similarity_variations.append(
+                            f"{f_var} {orig_middle} {orig_last}"
+                        )
+
+                # Generate more last name variations
+                last_variations = _generate_part_candidates(orig_last)
+                for l_var in last_variations[expected_count // 3 :]:
+                    if (
+                        l_var != orig_last
+                        and len(l_var) > 0
+                        and len(similarity_variations) < expected_count
+                    ):
+                        similarity_variations.append(
+                            f"{orig_first} {orig_middle} {l_var}"
+                        )
+            else:
+                # 2-part names
+                first_variations = _generate_part_candidates(orig_first)
+                last_variations = _generate_part_candidates(orig_last)
+
+                for f_var in first_variations[expected_count // 2 :]:
+                    if (
+                        f_var != orig_first
+                        and len(f_var) > 0
+                        and len(similarity_variations) < expected_count
+                    ):
+                        similarity_variations.append(f"{f_var} {orig_last}")
+
+                for l_var in last_variations[expected_count // 2 :]:
+                    if (
+                        l_var != orig_last
+                        and len(l_var) > 0
+                        and len(similarity_variations) < expected_count
+                    ):
+                        similarity_variations.append(f"{orig_first} {l_var}")
 
     # Combine rule-based and similarity-based variations
-    all_variations = rule_variations + similarity_variations
+    all_variations = similarity_variations
 
-    # If we don't have enough variations, add more from the base variations
-    if len(all_variations) < expected_count:
-        # Add more variations from the base pool
-        additional_needed = expected_count - len(all_variations)
-        additional_variations = [
-            v for v in unique_variations if v not in all_variations
-        ][:additional_needed]
-        all_variations.extend(additional_variations)
+    # Debug: Show what we have so far
+    print(f"Generated {len(similarity_variations)} similarity variations")
+    print(f"First 5: {similarity_variations[:5]}")
 
-    # If we still don't have enough, generate more using quality methods
-    if len(all_variations) < expected_count:
-        still_needed = expected_count - len(all_variations)
-        # Generate more quality variations using additional methods
-        more_variations = _generate_quality_variations(name, still_needed * 2)
-        for var in more_variations:
-            if var not in all_variations and var != name:
-                all_variations.append(var)
-                if len(all_variations) >= expected_count:
-                    break
+    # Use only our structure-preserving variations (no fallback to avoid malformed variations)
 
-    # If we still don't have enough, create better quality variations
-    if len(all_variations) < expected_count:
-        still_needed = expected_count - len(all_variations)
-        # Create better quality variations instead of simple number suffixes
-        better_variations = _generate_quality_variations(name, still_needed)
-        for var in better_variations:
-            if var not in all_variations and var != name:
-                all_variations.append(var)
-                if len(all_variations) >= expected_count:
-                    break
-
-    # If configs are provided, select by weighted similarity to better match validator targets
+    # If configs are provided, select by bucket targets (30/40/30) to match evaluator
     if phonetic_config and orthographic_config:
-        selected = _select_variations_by_weights(
+        print(f"Before bucket-target selection: {all_variations[:5]}")
+        bucket_targets = {
+            "Light": float(phonetic_config.get("Light", 0)),
+            "Medium": float(phonetic_config.get("Medium", 0)),
+            "Far": float(phonetic_config.get("Far", 0)),
+        }
+        selected = _select_variations_by_bucket_targets(
             variations=all_variations,
             original=name,
-            phonetic_config=phonetic_config,
-            orthographic_config=orthographic_config,
             expected_count=expected_count,
+            targets=bucket_targets,
         )
-        # If not enough selected (due to weights), fill from the remainder preserving order
+        # Fill if short
         if len(selected) < expected_count:
             selected_keys = set(v.lower() for v in selected)
             for v in all_variations:
@@ -1568,9 +1230,42 @@ def generate_name_variations(
                     selected.append(v)
                     selected_keys.add(v.lower())
         all_variations = selected
+        print(f"After bucket-target selection: {all_variations[:5]}")
 
-    # Enforce first+last structure before final ordering
-    all_variations = _enforce_first_last(name, all_variations)
+    # Skip _enforce_first_last for 3-part names to preserve structure
+
+    # If we still don't have enough after enforcing first+last, generate more
+    if len(all_variations) < expected_count:
+        still_needed = expected_count - len(all_variations)
+        # Generate more variations using quality methods
+        more_variations = _generate_quality_variations(name, still_needed * 3)
+        for var in more_variations:
+            if var not in all_variations and var != name:
+                all_variations.append(var)
+                if len(all_variations) >= expected_count:
+                    break
+
+    # If still not enough, create simple variations
+    if len(all_variations) < expected_count:
+        tokens = name.split()
+        if len(tokens) >= 2:
+            # Create simple word order variations
+            simple_variations = [
+                f"{tokens[1]} {tokens[0]}",  # Last First
+            ]
+            if len(tokens) >= 3:
+                simple_variations.extend(
+                    [
+                        f"{tokens[2]} {tokens[0]}",  # Last First (skip middle)
+                        f"{tokens[0]} {tokens[2]}",  # First Last (skip middle)
+                    ]
+                )
+
+            for var in simple_variations:
+                if var not in all_variations and var != name:
+                    all_variations.append(var)
+                    if len(all_variations) >= expected_count:
+                        break
 
     # Apply salted shuffle for consistent randomization
     rng_seed = (hash(name) & 0xFFFFFFFF) ^ (miner_salt * 10007) ^ (batch_salt * 97)
@@ -1592,16 +1287,191 @@ def predict_name_score(
 
 
 if __name__ == "__main__":
-
+    original_name = "Jackson Stamham"
+    # a = generate_name_variations(
+    #     name=original_name,
+    #     expected_count=15,
+    #     miner_salt=1,
+    #     batch_salt=1,
+    #     phonetic_config={"Light": 0.3, "Medium": 0.4, "Far": 0.3},
+    #     orthographic_config={"Light": 0.3, "Medium": 0.4, "Far": 0.3},
+    # )
     a = generate_name_variations(
-        name="Carlos Javier Gómez",
+        name=original_name,
         expected_count=15,
         miner_salt=1,
         batch_salt=1,
-        country="Spain",
-        phonetic_config={"Light": 0.3, "Medium": 0.4, "Far": 0.3},
-        orthographic_config={"Light": 0.3, "Medium": 0.4, "Far": 0.3},
-        rule_percentage=0,
-        selected_rules=["remove_random_vowel", "swap_random_letter"],
+        phonetic_config={"Medium": 0.5},
+        orthographic_config={"Medium": 0.5},
     )
     print(a)
+
+    # Evaluate quality using validator reward logic (both phonetic-only and combined)
+    try:
+        from MIID.validator.reward import (
+            calculate_variation_quality_phonetic_only,
+            calculate_variation_quality,
+        )
+
+        # Diagnostic: Check similarity scores of generated variations
+        print("=== DIAGNOSTIC ANALYSIS ===")
+        first_name = (
+            original_name.split()[0] if original_name.split() else original_name
+        )
+        last_name = (
+            original_name.split()[-1] if len(original_name.split()) > 1 else None
+        )
+
+        print(f"Original: {original_name}")
+        print(f"Parts: {original_name.split()}")
+        print(f"First: {first_name}, Last: {last_name}")
+        print(f"Generated {len(a)} variations")
+
+        # Analyze similarity distribution
+        phonetic_scores = []
+        orthographic_scores = []
+        for var in a:
+            parts = var.split()
+            if len(parts) >= 2:
+                first_var = parts[0]
+                last_var = parts[-1]
+
+                # Calculate similarities for first name
+                phon_first = _phonetic_similarity(first_name, first_var)
+                ortho_first = _orthographic_similarity(first_name, first_var)
+
+                # Calculate similarities for last name
+                if last_name:
+                    phon_last = _phonetic_similarity(last_name, last_var)
+                    ortho_last = _orthographic_similarity(last_name, last_var)
+
+                    # Average for full name
+                    phon_avg = (phon_first + phon_last) / 2
+                    ortho_avg = (ortho_first + ortho_last) / 2
+                else:
+                    phon_avg = phon_first
+                    ortho_avg = ortho_first
+
+                phonetic_scores.append(phon_avg)
+                orthographic_scores.append(ortho_avg)
+
+        # Analyze distribution
+        def analyze_distribution(scores, name):
+            light = sum(1 for s in scores if 0.80 <= s <= 1.00)
+            medium = sum(1 for s in scores if 0.60 <= s < 0.80)
+            far = sum(1 for s in scores if 0.30 <= s < 0.60)
+            reject = sum(1 for s in scores if s < 0.30)
+
+            print(f"{name} distribution:")
+            print(
+                f"  Light (0.80-1.00): {light}/{len(scores)} ({light/len(scores)*100:.1f}%)"
+            )
+            print(
+                f"  Medium (0.60-0.79): {medium}/{len(scores)} ({medium/len(scores)*100:.1f}%)"
+            )
+            print(
+                f"  Far (0.30-0.59): {far}/{len(scores)} ({far/len(scores)*100:.1f}%)"
+            )
+            print(
+                f"  Reject (<0.30): {reject}/{len(scores)} ({reject/len(scores)*100:.1f}%)"
+            )
+            print(f"  Avg score: {sum(scores)/len(scores):.3f}")
+            print(f"  Min score: {min(scores):.3f}, Max score: {max(scores):.3f}")
+
+        if phonetic_scores:
+            analyze_distribution(phonetic_scores, "Phonetic")
+        if orthographic_scores:
+            analyze_distribution(orthographic_scores, "Orthographic")
+
+        print("=== END DIAGNOSTIC ===\n")
+
+        # Debug: Show individual variation analysis
+        print("=== INDIVIDUAL VARIATION ANALYSIS ===")
+        for i, var in enumerate(a[:5]):  # Show first 5
+            parts = var.split()
+            if len(parts) >= 2:
+                first_var, last_var = parts[0], parts[-1]
+                phon_first = _phonetic_similarity(first_name, first_var)
+                phon_last = _phonetic_similarity(last_name, last_var)
+                print(
+                    f"  {i+1}. '{var}' -> First: '{first_var}' (phon: {phon_first:.3f}), Last: '{last_var}' (phon: {phon_last:.3f})"
+                )
+
+        # Debug: Show what part candidates are being generated
+        print("\n=== PART CANDIDATES DEBUG ===")
+        first_candidates = _generate_part_candidates(first_name)
+        last_candidates = _generate_part_candidates(last_name)
+        print(f"First name '{first_name}' candidates: {first_candidates[:5]}")
+        print(f"Last name '{last_name}' candidates: {last_candidates[:5]}")
+        print("=== END PART CANDIDATES DEBUG ===\n")
+
+        # Debug: Show what similarity_variations contains before any processing
+        print("=== SIMILARITY VARIATIONS DEBUG ===")
+        print(f"Generated {len(similarity_variations)} similarity variations")
+        print(f"First 5: {similarity_variations[:5]}")
+        print("=== END SIMILARITY VARIATIONS DEBUG ===\n")
+
+        # Phonetic-only
+        # p_final, p_base, p_details = calculate_variation_quality_phonetic_only(
+        #     original_name=original_name,
+        #     variations=a,
+        #     phonetic_similarity={"Light": 0.3, "Medium": 0.4, "Far": 0.3},
+        #     expected_count=15,
+        # )
+        p_final, p_base, p_details = calculate_variation_quality_phonetic_only(
+            original_name=original_name,
+            variations=a,
+            phonetic_similarity={"Medium": 0.5},
+            expected_count=15,
+        )
+        print(
+            {
+                "method": "phonetic_only",
+                "quality_final_score": float(p_final),
+                "quality_base_score": float(p_base),
+                "details_keys": (
+                    list(p_details.keys())
+                    if isinstance(p_details, dict)
+                    else type(p_details).__name__
+                ),
+            }
+        )
+
+        # Show detailed metrics for debugging
+        if isinstance(p_details, dict):
+            print("Phonetic-only detailed metrics:")
+            for key, value in p_details.items():
+                if isinstance(value, dict):
+                    print(f"  {key}: {value}")
+                else:
+                    print(f"  {key}: {value}")
+
+        # Combined (phonetic + orthographic)
+        # c_final, c_base, c_details = calculate_variation_quality(
+        #     original_name=original_name,
+        #     variations=a,
+        #     phonetic_similarity={"Light": 0.3, "Medium": 0.4, "Far": 0.3},
+        #     orthographic_similarity={"Light": 0.3, "Medium": 0.4, "Far": 0.3},
+        #     expected_count=15,
+        # )
+        c_final, c_base, c_details = calculate_variation_quality(
+            original_name=original_name,
+            variations=a,
+            phonetic_similarity={"Medium": 0.5},
+            orthographic_similarity={"Medium": 0.5},
+            expected_count=15,
+        )
+        print(
+            {
+                "method": "combined",
+                "quality_final_score": float(c_final),
+                "quality_base_score": float(c_base),
+                "details_keys": (
+                    list(c_details.keys())
+                    if isinstance(c_details, dict)
+                    else type(c_details).__name__
+                ),
+            }
+        )
+    except Exception as e:
+        print({"quality_eval_error": str(e)})
