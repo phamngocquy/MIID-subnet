@@ -13,6 +13,7 @@ import random
 from typing import Callable, Dict, List
 
 import bittensor as bt
+from numpy import promote_types
 
 from extensions import input_parse
 from MIID.validator.rule_evaluator import (
@@ -181,38 +182,38 @@ def gen_replace_random_consonant_with_random_consonant(
     vowels = "aeiouAEIOU"
     out: List[str] = []
     indices = [i for i, ch in enumerate(name) if ch.isalpha() and ch not in vowels]
-    keyboard = {
-        "q": "w",
-        "r": "t",
-        "t": "y",
-        "y": "u",
-        "u": "i",
-        "i": "o",
-        "o": "p",
-        "a": "s",
-        "s": "d",
-        "d": "f",
-        "f": "g",
-        "g": "h",
-        "h": "j",
-        "j": "k",
-        "k": "l",
-        "z": "x",
-        "x": "c",
-        "c": "v",
-        "v": "b",
-        "b": "n",
-        "n": "m",
-    }
+    consonant = [
+        "b",
+        "c",
+        "d",
+        "f",
+        "g",
+        "h",
+        "j",
+        "k",
+        "l",
+        "m",
+        "n",
+        "p",
+        "q",
+        "r",
+        "s",
+        "t",
+        "v",
+        "w",
+        "x",
+        "y",
+        "z",
+    ]
     rng = _make_rng(name, miner_salt, batch_salt)
     rng.shuffle(indices)
     for i in indices[:n]:
         ch = name[i]
-        low = ch.lower()
-        rep = keyboard.get(low)
-        if rep:
-            rep = rep.upper() if ch.isupper() else rep
-            out.append(name[:i] + rep + name[i + 1 :])
+        rep = rng.choice(consonant)
+        while rep == ch.lower():
+            rep = rng.choice(consonant)
+        rep = rep.upper() if ch.isupper() else rep
+        out.append(name[:i] + rep + name[i + 1 :])
     return out
 
 
@@ -579,18 +580,15 @@ RULE_GENERATORS: Dict[str, tuple[Callable, Callable]] = {
 
 def generate_variations(
     name: str,
-    prompt: str,
+    selected_rules: list[str],
+    rule_expected_count: int,
     miner_salt: int = 0,
     batch_salt: int = 0,
 ) -> list[str]:
 
     out: list[str] = []
     variations: list[list[str]] = []
-    selected_rules, _ = input_parse.find_variations_rules(prompt)
-    bt.logging.critical(f"Selected rules: {selected_rules}")
-    expected_count = input_parse.find_number_rule_variations(prompt)
-    bt.logging.critical(f"Expected count: {expected_count}")
-    variation_per_rule = max(1, math.ceil(expected_count / len(selected_rules)))
+    variation_per_rule = max(1, math.ceil(rule_expected_count / len(selected_rules)))
     for rule in selected_rules:
         gen_func, val_func = RULE_GENERATORS[rule]
         vars = gen_func(
@@ -612,7 +610,7 @@ def generate_variations(
     # assert expected_count <= sum([len(vars) for vars in variations])
 
     bt.logging.critical(f"rule variations for {variations}")
-    while len(out) < expected_count and sum([len(vars) for vars in variations]):
+    while len(out) < rule_expected_count and sum([len(vars) for vars in variations]):
         for vars in variations:
             if vars:
                 out.append(vars.pop())
@@ -859,12 +857,20 @@ def test_rule_generator():
 - Each variation must have a different, realistic address and DOB
 
     """
-    variations = generate_variations(name, prompt, miner_salt=1, batch_salt=1)
+    selected_rules, _ = input_parse.find_variations_rules(prompt)
+
+    rule_expected_count = input_parse.find_number_rule_variations(prompt)
+
+    variations = generate_variations(
+        name, selected_rules, rule_expected_count, miner_salt=1, batch_salt=1
+    )
     print(variations)
 
 
 if __name__ == "__main__":
     # test_all_rules()
     # test_rule_generator()
-    for item in gen_replace_random_consonant_with_random_consonant("janet wood"):
-        print(item, is_consonant_replaced("janet wood", item))
+    for item in gen_replace_random_consonant_with_random_consonant(
+        "Vinai PITCHAYOS", n=20
+    ):
+        print(item, is_consonant_replaced("Vinai PITCHAYOS", item))

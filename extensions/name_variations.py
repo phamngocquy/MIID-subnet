@@ -1287,7 +1287,7 @@ def predict_name_score(
 
 
 if __name__ == "__main__":
-    original_name = "Jackson Stamham"
+    original_name = "Condrát'jilapin"
     # a = generate_name_variations(
     #     name=original_name,
     #     expected_count=15,
@@ -1296,21 +1296,21 @@ if __name__ == "__main__":
     #     phonetic_config={"Light": 0.3, "Medium": 0.4, "Far": 0.3},
     #     orthographic_config={"Light": 0.3, "Medium": 0.4, "Far": 0.3},
     # )
-    a = generate_name_variations(
+    name_variation = generate_name_variations(
         name=original_name,
         expected_count=15,
         miner_salt=1,
         batch_salt=1,
-        phonetic_config={"Medium": 0.5},
-        orthographic_config={"Medium": 0.5},
+        phonetic_config={"Light": 1},
+        orthographic_config={"Light": 1},
     )
-    print(a)
+    print(name_variation)
 
     # Evaluate quality using validator reward logic (both phonetic-only and combined)
     try:
         from MIID.validator.reward import (
-            calculate_variation_quality_phonetic_only,
             calculate_variation_quality,
+            calculate_variation_quality_phonetic_only,
         )
 
         # Diagnostic: Check similarity scores of generated variations
@@ -1325,12 +1325,12 @@ if __name__ == "__main__":
         print(f"Original: {original_name}")
         print(f"Parts: {original_name.split()}")
         print(f"First: {first_name}, Last: {last_name}")
-        print(f"Generated {len(a)} variations")
+        print(f"Generated {len(name_variation)} variations")
 
         # Analyze similarity distribution
         phonetic_scores = []
         orthographic_scores = []
-        for var in a:
+        for var in name_variation:
             parts = var.split()
             if len(parts) >= 2:
                 first_var = parts[0]
@@ -1339,6 +1339,8 @@ if __name__ == "__main__":
                 # Calculate similarities for first name
                 phon_first = _phonetic_similarity(first_name, first_var)
                 ortho_first = _orthographic_similarity(first_name, first_var)
+
+                print(phon_first, ortho_first)
 
                 # Calculate similarities for last name
                 if last_name:
@@ -1387,7 +1389,7 @@ if __name__ == "__main__":
 
         # Debug: Show individual variation analysis
         print("=== INDIVIDUAL VARIATION ANALYSIS ===")
-        for i, var in enumerate(a[:5]):  # Show first 5
+        for i, var in enumerate(name_variation[:5]):  # Show first 5
             parts = var.split()
             if len(parts) >= 2:
                 first_var, last_var = parts[0], parts[-1]
@@ -1420,8 +1422,8 @@ if __name__ == "__main__":
         # )
         p_final, p_base, p_details = calculate_variation_quality_phonetic_only(
             original_name=original_name,
-            variations=a,
-            phonetic_similarity={"Medium": 0.5},
+            variations=name_variation,
+            phonetic_similarity={"Light": 0.3, "Medium": 0.4, "Far": 0.3},
             expected_count=15,
         )
         print(
@@ -1447,18 +1449,11 @@ if __name__ == "__main__":
                     print(f"  {key}: {value}")
 
         # Combined (phonetic + orthographic)
-        # c_final, c_base, c_details = calculate_variation_quality(
-        #     original_name=original_name,
-        #     variations=a,
-        #     phonetic_similarity={"Light": 0.3, "Medium": 0.4, "Far": 0.3},
-        #     orthographic_similarity={"Light": 0.3, "Medium": 0.4, "Far": 0.3},
-        #     expected_count=15,
-        # )
         c_final, c_base, c_details = calculate_variation_quality(
             original_name=original_name,
-            variations=a,
-            phonetic_similarity={"Medium": 0.5},
-            orthographic_similarity={"Medium": 0.5},
+            variations=name_variation,
+            phonetic_similarity={"Light": 0.3, "Medium": 0.4, "Far": 0.3},
+            orthographic_similarity={"Light": 0.3, "Medium": 0.4, "Far": 0.3},
             expected_count=15,
         )
         print(

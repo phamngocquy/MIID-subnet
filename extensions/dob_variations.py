@@ -49,6 +49,24 @@ def predict_dob_category_score(
 
 
 RANGES = [1, 3, 30, 90, 365]  # day offsets
+EXTRA_RANGES = [
+    5,
+    10,
+    15,
+    20,
+    25,
+    35,
+    40,
+    45,
+    50,
+    55,
+    65,
+    75,
+    85,
+    95,
+    100,
+    105,
+]  # day extra offsets to prevent duplicate dob
 
 
 def _parse_date(date_str: str) -> datetime:
@@ -88,6 +106,7 @@ def generate_dob_variations(
         v = _fmt_date(base_date + timedelta(days=days))
         if v not in guaranteed:
             guaranteed.append(v)
+
     ym = _year_month_only(seed_dob)
     if ym not in guaranteed:
         guaranteed.append(ym)
@@ -99,13 +118,24 @@ def generate_dob_variations(
         if v not in guaranteed and v not in fillers:
             fillers.append(v)
 
+    # 3) Add extra variants
+    extras: List[str] = []
+    for days in EXTRA_RANGES:
+        v = _fmt_date(base_date - timedelta(days=days))
+        if v not in guaranteed and v not in fillers and v not in extras:
+            fillers.append(v)
+
+        v = _fmt_date(base_date + timedelta(days=days))
+        if v not in guaranteed and v not in fillers and v not in extras:
+            fillers.append(v)
+
     # Stable randomized ordering with salt
     rng_seed = (hash(seed_dob) & 0xFFFFFFFF) ^ (miner_salt * 131) ^ (batch_salt * 911)
 
     rng = random.Random(rng_seed)
     rng.shuffle(guaranteed)
     rng.shuffle(fillers)
-    variations = guaranteed + fillers
+    variations = guaranteed + fillers + extras
 
     if not variations:
         return []
@@ -116,4 +146,5 @@ def generate_dob_variations(
 
 
 if __name__ == "__main__":
-    print(generate_dob_variations("1990-01-15", 8))
+    dobs = generate_dob_variations("1990-01-15", 20)
+    print(len(dobs), len(set(dobs)))

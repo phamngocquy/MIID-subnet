@@ -47,34 +47,33 @@ Each mining run is saved with a unique timestamp identifier to distinguish betwe
 different runs and facilitate analysis of results over time.
 """
 
+import os
 import time
 import typing
+from typing import Dict, List
+
 import bittensor as bt
+import numpy as np
 import ollama
 import pandas as pd
-import os
-import numpy as np
-from typing import List, Dict
+from bittensor.core.errors import NotVerifiedException
 from tqdm import tqdm
 
-# Bittensor Miner Template:
-from MIID.protocol import IdentitySynapse
-
-# import base miner class which takes care of most of the boilerplate
-from MIID.base.miner import BaseMinerNeuron
-
-from bittensor.core.errors import NotVerifiedException
-from MIID.validator.reward import transliterate_name_with_llm
-from MIID.validator.rule_evaluator import is_letter_duplicated
 from extensions import (
     address_variations,
     dob_variations,
     input_parse,
-    llm_variations,
     name_variations,
     rule_based_variations,
 )
 from extensions.rule_based_variations import detect_script
+
+# import base miner class which takes care of most of the boilerplate
+from MIID.base.miner import BaseMinerNeuron
+
+# Bittensor Miner Template:
+from MIID.protocol import IdentitySynapse
+from MIID.validator.reward import transliterate_name_with_llm
 
 
 class Miner(BaseMinerNeuron):
@@ -249,7 +248,9 @@ class Miner(BaseMinerNeuron):
         os.makedirs(run_dir, exist_ok=True)
 
         variations = {}
-
+        variation_count = None
+        selected_rules = None
+        rule_expected_count = None
         # Process each identity in the request, respecting the timeout
         for _, identity in enumerate(
             tqdm(synapse.identity, desc="Processing identities")
@@ -275,36 +276,53 @@ class Miner(BaseMinerNeuron):
             formatted_query = synapse.query_template.replace(
                 "{name}", transliterate_name
             )
+
             formatted_query = formatted_query.replace("{address}", address)
             formatted_query = formatted_query.replace("{dob}", dob)
             bt.logging.info(f"Formatted query: {formatted_query}")
 
-            variation_count = input_parse.find_variation_count(formatted_query)
+            if not variation_count:
+                variation_count = input_parse.find_variation_count(formatted_query)
+
+            if not selected_rules:
+                selected_rules, _ = input_parse.find_variations_rules(formatted_query)
+                bt.logging.critical(f"Selected rules: {selected_rules}")
+
+            if not rule_expected_count:
+                rule_expected_count = input_parse.find_number_rule_variations(
+                    formatted_query
+                )
+                bt.logging.critical(f"Expected count: {rule_expected_count}")
 
             bt.logging.info(
                 f"""Processing {name} - is latin: {is_latin}, name: {transliterate_name},
                 DOB: {dob}, Address: {address}, expecting {variation_count} variations"""
             )
 
-            llm_name_variation = llm_variations.generate_variations(
-                formatted_query, transliterate_name, is_latin
+            name_variation = name_variations.generate_name_variations(
+                name=transliterate_name,
+                expected_count=variation_count * 2,
+                miner_salt=1,
+                batch_salt=1,
+                phonetic_config={"Light": 1},  # fixed
+                orthographic_config={"Light": 1},  # fixed
             )
-            bt.logging.critical(f"llm_name_variation: {llm_name_variation}")
 
             name_variation_rule_based = []
             if is_latin:
                 name_variation_rule_based = rule_based_variations.generate_variations(
                     transliterate_name,
-                    formatted_query,
+                    selected_rules,
+                    rule_expected_count,
                     miner_salt=1,
                     batch_salt=1,
                 )
 
-            name_variation = [
-                item.lower()
-                for item in (name_variation_rule_based + llm_name_variation)
-            ]
+            combine_name_variation = list(
+                {item.lower() for item in (name_variation_rule_based + name_variation)}
+            )
 
+            name_variation = combine_name_variation[:variation_count]
             dob_variation = dob_variations.generate_dob_variations(
                 seed_dob=dob, expected_count=variation_count
             )
@@ -313,15 +331,12 @@ class Miner(BaseMinerNeuron):
                 address, expected_count=variation_count
             )
 
-            print(dob_variation)
-            print(name_variation)
-            print(address_variation)
+            bt.logging.critical(f"variation_count: {variation_count}")
+            bt.logging.critical(f"name_variation: {name_variation}")
+            bt.logging.critical(f"dob_variation: {dob_variation}")
+            bt.logging.critical(f"address_variation: {address_variation}")
 
-            bt.logging.critical(
-                f"name_variation: {name_variation} | variation_count: {variation_count}"
-            )
-            assert len(name_variation) >= variation_count
-
+            # assert len(name_variation) >= variation_count
             for idx in range(len(dob_variation)):
                 var_name = name_variation[idx] if idx < len(name_variation) else ""
                 var_dob = dob_variation[idx] if idx < len(dob_variation) else ""
