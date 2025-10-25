@@ -512,7 +512,10 @@ def gen_shorten_name_to_abbreviations(
     out: set[str] = set()
 
     rng = _make_rng(name, miner_salt, batch_salt)
-    shortens = [[part[:idx] for idx in range(1, len(part) - 1)] for part in parts]
+    shortens = [
+        [part[:idx] for idx in range(1, len(part))] if len(part) > 1 else part
+        for part in parts
+    ]
     for _ in range(n):
         var_name = ""
         for part in shortens:
@@ -847,9 +850,9 @@ def test_all_rules():
 
 
 def test_rule_generator():
-    name = "John Smith"
+    name = "Vitaleksin"
     prompt = """
-      Generate 15 variations of the name Quy Pham, ensuring phonetic similarity: {'Medium': 0.5}, and orthographic similarity: {'Medium': 0.5}, and also include 30% of variations that follow: Additionally, generate variations that perform these transformations: Convert name to initials, Replace random vowels with different vowels, and Insert a random letter.. The following address is the seed country/city to generate address variations for: Lesotho. Generate unique real addresses within the specified country/city for each variation.  The following date of birth is the seed DOB to generate variations for: 1986-11-06.
+      Generate 15 variations of the name Vitaleksin, ensuring phonetic similarity: {'Medium': 0.5}, and orthographic similarity: {'Medium': 0.5}, and also include 30% of variations that follow: Additionally, generate variations that perform these transformations: Reorder name parts, Insert a random letter, and Duplicate a random letter. The following address is the seed country/city to generate address variations for: Lesotho. Generate unique real addresses within the specified country/city for each variation.  The following date of birth is the seed DOB to generate variations for: 1986-11-06.
 
 [ADDITIONAL CONTEXT]:
 - Address variations should be realistic addresses within the specified country/city
@@ -869,8 +872,10 @@ def test_rule_generator():
 
 if __name__ == "__main__":
     # test_all_rules()
-    # test_rule_generator()
-    for item in gen_replace_random_consonant_with_random_consonant(
-        "Vinai PITCHAYOS", n=20
-    ):
-        print(item, is_consonant_replaced("Vinai PITCHAYOS", item))
+    test_rule_generator()
+    # for item in gen_shorten_name_to_abbreviations("Huaying L", n=20):
+    # print(item, is_name_abbreviated("Huaying L",item))
+    # for item in gen_replace_random_consonant_with_random_consonant(
+    #     "Vinai PITCHAYOS", n=20
+    # ):
+    #     print(item, is_consonant_replaced("Vinai PITCHAYOS", item))

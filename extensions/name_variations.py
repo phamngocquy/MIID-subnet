@@ -1067,7 +1067,54 @@ def generate_name_variations(
 
     # Generate variations that preserve the original name structure
     parts = [p for p in name.split() if p.strip()]
-    if len(parts) >= 2:
+
+    if len(parts) == 1:
+        # Single-part names: generate character-level variations
+        single_name = parts[0]
+        part_variations = _generate_part_candidates(single_name)
+
+        # Take up to expected_count variations
+        for var in part_variations[:expected_count]:
+            if var != single_name and len(var) > 0:
+                similarity_variations.append(var)
+                if len(similarity_variations) >= expected_count:
+                    break
+
+        # If we still need more variations, generate additional ones
+        if len(similarity_variations) < expected_count:
+            # Try adding common surnames to create two-part names
+            common_surnames = [
+                "Smith",
+                "Johnson",
+                "Williams",
+                "Brown",
+                "Jones",
+                "Garcia",
+                "Miller",
+                "Davis",
+            ]
+            for surname in common_surnames:
+                if len(similarity_variations) >= expected_count:
+                    break
+                # Create variations like "Condrát'jilapin Smith", "Condrát'jilapin Johnson", etc.
+                for var in part_variations[
+                    :3
+                ]:  # Use first 3 variations of the single name
+                    if var != single_name:
+                        two_part_variation = f"{var} {surname}"
+                        if two_part_variation not in similarity_variations:
+                            similarity_variations.append(two_part_variation)
+                            if len(similarity_variations) >= expected_count:
+                                break
+
+                # Also try original name with surname
+                two_part_original = f"{single_name} {surname}"
+                if two_part_original not in similarity_variations:
+                    similarity_variations.append(two_part_original)
+                    if len(similarity_variations) >= expected_count:
+                        break
+
+    elif len(parts) >= 2:
         # Always preserve the full structure: First [Middle] Last
         orig_first, orig_last = parts[0], parts[-1]
 
@@ -1287,7 +1334,7 @@ def predict_name_score(
 
 
 if __name__ == "__main__":
-    original_name = "Condrát'jilapin"
+    original_name = "Vitalenksin"
     # a = generate_name_variations(
     #     name=original_name,
     #     expected_count=15,
@@ -1394,17 +1441,27 @@ if __name__ == "__main__":
             if len(parts) >= 2:
                 first_var, last_var = parts[0], parts[-1]
                 phon_first = _phonetic_similarity(first_name, first_var)
-                phon_last = _phonetic_similarity(last_name, last_var)
-                print(
-                    f"  {i+1}. '{var}' -> First: '{first_var}' (phon: {phon_first:.3f}), Last: '{last_var}' (phon: {phon_last:.3f})"
-                )
+                if last_name:
+                    phon_last = _phonetic_similarity(last_name, last_var)
+                    print(
+                        f"  {i+1}. '{var}' -> First: '{first_var}' (phon: {phon_first:.3f}), Last: '{last_var}' (phon: {phon_last:.3f})"
+                    )
+                else:
+                    print(f"  {i+1}. '{var}' -> Single name variation")
+            else:
+                # Single-part variation
+                phon_single = _phonetic_similarity(first_name, var)
+                print(f"  {i+1}. '{var}' -> Single name (phon: {phon_single:.3f})")
 
         # Debug: Show what part candidates are being generated
         print("\n=== PART CANDIDATES DEBUG ===")
         first_candidates = _generate_part_candidates(first_name)
-        last_candidates = _generate_part_candidates(last_name)
         print(f"First name '{first_name}' candidates: {first_candidates[:5]}")
-        print(f"Last name '{last_name}' candidates: {last_candidates[:5]}")
+        if last_name:
+            last_candidates = _generate_part_candidates(last_name)
+            print(f"Last name '{last_name}' candidates: {last_candidates[:5]}")
+        else:
+            print("Last name: None (single-part name)")
         print("=== END PART CANDIDATES DEBUG ===\n")
 
         # Debug: Show what similarity_variations contains before any processing
